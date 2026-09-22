@@ -144,8 +144,8 @@ const prevYm=m=>{let[y,mo]=m.split('-').map(Number);mo--;if(mo<1){mo=12;y--}retu
 const isWork=s=>!!s&&!String(s).includes('عطلة');
 const whenTxt=n=>n===0?'اليوم':n===1?'غدا':'فـ '+n+' يوم';
 
-function defaults(){return{v:1,settings:{name:'الطاكسي',plate:'',logo:'',pin:'',drivers:['حسن','محمد','الحسين'],shifts:[{n:'نص يوم صباح',r:200},{n:'يوم كامل',r:300},{n:'نص يوم مساء',r:150},{n:'يوم الأحد',r:250},{n:'يوم عطلة',r:0}],cons:5.7,price:15.38},days:[],losses:[],fixed:[],advances:[],maint:{ins:'',vt:'',oilLast:0,oilDate:'',km:0,oilEvery:10000,oilType:'فيدانج عادي',insCost:0,vtCost:0,instStart:'',instCount:0,instAmt:0},lastBackup:''}}
-function norm(o){const d=defaults();o=o||{};o.settings=Object.assign(d.settings,o.settings||{});o.maint=Object.assign(d.maint,o.maint||{});['days','losses','fixed','advances'].forEach(k=>{if(!Array.isArray(o[k]))o[k]=[]});o.lastBackup=o.lastBackup||'';return o}
+function defaults(){return{v:1,settings:{name:'الطاكسي',plate:'',logo:'',pin:'',drivers:['حسن','محمد','الحسين'],shifts:[{n:'نص يوم صباح',r:200},{n:'يوم كامل',r:300},{n:'نص يوم مساء',r:150},{n:'يوم الأحد',r:250},{n:'يوم عطلة',r:0},{n:'عطب (en panne)',r:0}],cons:5.7,price:15.38},days:[],losses:[],fixed:[],advances:[],ev:{on:false,from:'',model:'BYD Seagull',price:168500,subsidy:30000,battery:38.88,tariff:1.66,refCons:6,refPrice:15.07,range:445,batWarranty:'8 سنين',motorWarranty:'6 سنين / 200,000 كم'},maint:{ins:'',vt:'',oilLast:0,oilDate:'',km:0,oilEvery:10000,oilType:'فيدانج عادي',insCost:0,vtCost:0,instStart:'',instCount:0,instAmt:0,tireKm:0,tireDate:'',tireEvery:40000},lastBackup:''}}
+function norm(o){const d=defaults();o=o||{};o.settings=Object.assign(d.settings,o.settings||{});o.maint=Object.assign(d.maint,o.maint||{});o.ev=Object.assign(d.ev,o.ev||{});if(!o.settings.shifts.some(x=>x.n.includes('عطب')))o.settings.shifts.push({n:'عطب (en panne)',r:0});['days','losses','fixed','advances'].forEach(k=>{if(!Array.isArray(o[k]))o[k]=[]});o.lastBackup=o.lastBackup||'';return o}
 function seed(){
  const s=defaults(),M='محمد',H='الحسين',E='نص يوم مساء',Sb='نص يوم صباح',K='يوم كامل',A='يوم الأحد',O='يوم عطلة',R={[Sb]:200,[K]:300,[E]:150,[A]:250,[O]:0};
  const rows=[[127,6.11,15.07,116.94,402,15,'lavage+police',E,Sb],[121,6.40,15.07,116.70,398,10,'lavage',E,Sb],[148,5.81,15.07,129.15,372,5,'police',E,Sb],[157,5.81,15.07,137.03,487.5,0,'matar lil+livraison dacia',K,O],[72,5.81,15.07,63.04,220,0,'matar sba7',E,O],[95,5.81,15.07,83.27,259,0,'4 livraison ( logan+sandero+clio) dacia abdeltif',A,O],[240,5.81,15.07,210.14,807,20,'15 lavage + 5 police',K,O],[106,6.11,15.07,97.14,389,10,'Lavage',E,Sb],[56,8.34,15.07,70.01,222,0,'',E,Sb],[0,6.11,15.07,0,0,0,'',E,Sb],[105,5.67,15.04,89.37,383,0,'',E,Sb],[239,5.67,15.04,203.81,800,0,'',K,O],[94,5.67,15.04,80.07,330,5,'Police',A,O],[225,5.67,15.04,191.45,691,20,'Police lavage',K,O],[0,6.11,15.04,0,0,0,'',O,K],[141,5.33,15.38,115.18,411,10,'Lavage',E,Sb],[170,5.85,15.38,153.13,595,32,'Lavage + taxi batoir',E,Sb],[115,5.70,15.38,100.82,487,0,'',E,Sb],[131,5.70,15.38,114.84,564,5,'Police',K,O],[102,5.70,15.38,88.98,488,10,'lavage',A,O]];
@@ -172,8 +172,8 @@ function monthsRange(){let first=ymOf(todayIso()),last=first;[...S.days,...S.los
 function instFor(m){const M=S.maint;if(!M.instStart||!(num(M.instCount)>0)||!(num(M.instAmt)>0))return 0;const s=ymOf(M.instStart);let e=s;for(let i=1;i<num(M.instCount);i++)e=nextYm(e);return m>=s&&m<=e?num(M.instAmt):0}
 function fixedFor(m){return S.fixed.filter(f=>!f.from||f.from<=m).reduce((s,f)=>s+num(f.a),0)+instFor(m)}
 function periodMonths(p){const all=monthsRange(),cur=ymOf(todayIso());if(p==='all')return all.filter(m=>m<=cur);if(p.startsWith('y:'))return all.filter(m=>m.startsWith(p.slice(2))&&m<=cur);return[p.slice(2)]}
-function agg(ms){const set=new Set(ms),a={ros:0,fuel:0,exp:0,rec:0,km:0,baqi:{},rosBy:{},work:{},loss:0,n:0};
- S.days.forEach(d=>{if(!set.has(ymOf(d.date)))return;const c=calc(d);a.n++;a.ros+=c.ros;a.fuel+=num(d.fuel);a.exp+=c.expT;a.rec+=num(d.rec);a.km+=num(d.km);
+function agg(ms){const set=new Set(ms),a={ros:0,fuel:0,exp:0,rec:0,km:0,kwh:0,save:0,evKm:0,baqi:{},rosBy:{},work:{},loss:0,n:0};
+ S.days.forEach(d=>{if(!set.has(ymOf(d.date)))return;const c=calc(d);a.n++;a.ros+=c.ros;a.fuel+=num(d.fuel);a.exp+=c.expT;a.rec+=num(d.rec);a.km+=num(d.km);if(d.ev){a.kwh+=num(d.kwh);a.save+=num(d.dieselEq)-num(d.fuel);a.evKm+=num(d.km)}
   if(d.d1){a.baqi[d.d1]=(a.baqi[d.d1]||0)+c.baqi;a.rosBy[d.d1]=(a.rosBy[d.d1]||0)+c.w1;if(isWork(d.s1))a.work[d.d1]=(a.work[d.d1]||0)+1}
   if(d.d2){a.rosBy[d.d2]=(a.rosBy[d.d2]||0)+c.w2;if(isWork(d.s2))a.work[d.d2]=(a.work[d.d2]||0)+1}});
  a.loss=S.losses.filter(l=>l.date&&set.has(ymOf(l.date))).reduce((s,l)=>s+num(l.amount),0);
@@ -201,9 +201,10 @@ function render(){
 function alertsList(){const M=S.maint,L=[];
  const ins=daysUntil(M.ins);if(ins!==null){if(ins<0)L.push(['bad','🛡️','التأمين سالا هادي '+(-ins)+' يوم ('+fd(M.ins)+')',"go('maint')"]);else if(ins<=15)L.push([ins<=3?'bad':'warn','🛡️','التأمين غادي يسالي '+whenTxt(ins)+' ('+fd(M.ins)+')',"go('maint')"])}
  const vt=daysUntil(M.vt);if(vt!==null){if(vt<0)L.push(['bad','🔍','الفيزيت سالات هادي '+(-vt)+' يوم',"go('maint')"]);else if(vt<=30)L.push([vt<=5?'bad':'warn','🔍','الفيزيت غادي تسالي '+whenTxt(vt)+' ('+fd(M.vt)+')',"go('maint')"])}
- if(num(M.oilLast)>0){const rem=num(M.oilLast)+num(M.oilEvery)-num(M.km);if(rem<=0)L.push(['bad','🛢️','الفيدانج فات بـ '+km(-rem),"go('maint')"]);else if(rem<=1000)L.push(['warn','🛢️','باقي '+km(rem)+' للفيدانج',"go('maint')"])}
+ if(!S.ev.on&&num(M.oilLast)>0){const rem=num(M.oilLast)+num(M.oilEvery)-num(M.km);if(rem<=0)L.push(['bad','🛢️','الفيدانج فات بـ '+km(-rem),"go('maint')"]);else if(rem<=1000)L.push(['warn','🛢️','باقي '+km(rem)+' للفيدانج',"go('maint')"])}
  const ii=instInfo();if(ii&&ii.next&&num(M.instAmt)>0){const n=daysUntil(ii.next);if(n<=5)L.push(['warn','💳','القسط ديال '+money(M.instAmt)+' '+whenTxt(n),"go('maint')"])}
- const med=consMed(),t0=new Date();t0.setDate(t0.getDate()-7);S.days.filter(d=>pd(d.date)>=t0&&fuelOdd(d,med)).forEach(d=>L.push(['warn','⛽','المازوط غريب نهار '+fd(d.date)+': <span class="num">'+num(d.cons).toFixed(2)+'</span> L/100 (العادة <span class="num">'+med.toFixed(2)+'</span>)',`openDay('${d.id}')`]));
+ const t0=new Date();t0.setDate(t0.getDate()-7);S.days.filter(d=>pd(d.date)>=t0&&fuelOdd(d)).forEach(d=>{const md=consMed(!!d.ev);L.push(['warn',d.ev?'⚡':'⛽',(d.ev?'الكهرباء':'المازوط')+' غريب نهار '+fd(d.date)+': <span class="num">'+num(d.cons).toFixed(2)+'</span> '+(d.ev?'kWh':'L')+'/100 (العادة <span class="num">'+md.toFixed(2)+'</span>)',`openDay('${d.id}')`])});
+ if(num(M.tireKm)>0){const tr=num(M.tireKm)+num(M.tireEvery)-num(M.km);if(tr<=0)L.push(['bad','🛞','الإطارات فاتو الوقت بـ '+km(-tr),"go('maint')"]);else if(tr<=1500)L.push(['warn','🛞','باقي '+km(tr)+' لتبديل الإطارات',"go('maint')"])}
  const ab=advBal();Object.keys(ab).forEach(n=>{if(ab[n]>0)L.push(['warn','💵',esc(n)+' عليه '+money(ab[n])+' سلف',"UI.lt='a';go('loss')"])});
  missingDays().forEach(s=>L.push(['warn','📅','نهار ما تسجلش: '+DAYS[pd(s).getDay()]+' '+fd(s),`openDay(null,'${s}')`]));
  if(!S.lastBackup)L.push(['warn','💾','ماعمرك درتي نسخة احتياطية — دير وحدة دابا',"go('set')"]);else{const d=-daysUntil(S.lastBackup);if(d>7)L.push(['warn','💾','آخر نسخة احتياطية هادي '+d+' يوم',"go('set')"])}
@@ -213,26 +214,30 @@ function vDash(){const p=UI.period,a=aggP(p),L=alertsList();
  h+=`<div class="sec">📅 الفترة</div><select onchange="UI.period=this.value;render()">${periodOpts(p)}</select>`;
  h+=`<div class="meter"><div class="t">💰 صافي الربح ديالك</div><div class="v ${a.net<0?'neg':''}">${money(a.net)}</div><div class="f">الروسيطات ${fmtN(a.ros)} − الخسائر ${fmtN(a.loss)}</div></div>`;
  h+=`<div class="grid2">${stat('مجموع الروسيطات',a.ros,'amb')}${stat('مجموع السومة',a.rec)}</div>`;
+ if(S.ev.on)h+=evCard(a);
  h+=`<div class="sec">👤 الباقي للسائقين</div><div class="grid2">`+driverNames(a).map(n=>`<div class="stat"><div class="v ${(a.baqi[n]||0)<0?'neg':'blue'}">${money(a.baqi[n]||0)}</div><div class="l">${esc(n)} — الباقي · ${a.work[n]||0} نهار خدمة</div></div>`).join('')+`</div>`;
- h+=`<div class="sec">💸 المصاريف</div><div class="grid2">${stat('تكلفة المازوط',a.fuel,'neg')}${stat('المصاريف اليومية',a.exp,'neg')}${stat('الخسائر (أضرار/إصلاح)',a.loss,'neg')}${stat('مصاريف ثابتة وأقساط (للمعلومة)',a.fixed)}</div>`;
- h+=`<div class="card" style="margin-top:8px"><div class="row"><span>الكيلومترات</span><b>${km(a.km)}</b></div><div class="row"><span>أيام مسجلة</span><b>${a.n}</b></div><div class="row"><span>المازوط لكل 100 كم</span><b>${a.km?money(a.fuel/a.km*100):'—'}</b></div></div>`;
+ h+=`<div class="sec">💸 المصاريف</div><div class="grid2">${stat(S.ev.on?'المازوط / الكهرباء':'تكلفة المازوط',a.fuel,'neg')}${stat('المصاريف اليومية',a.exp,'neg')}${stat('الخسائر (أضرار/إصلاح)',a.loss,'neg')}${stat('مصاريف ثابتة وأقساط (للمعلومة)',a.fixed)}</div>`;
+ h+=`<div class="card" style="margin-top:8px"><div class="row"><span>الكيلومترات</span><b>${km(a.km)}</b></div><div class="row"><span>أيام مسجلة</span><b>${a.n}</b></div><div class="row"><span>${S.ev.on?'الطاقة':'المازوط'} لكل 100 كم</span><b>${a.km?money(a.fuel/a.km*100):'—'}</b></div></div>`;
  if(p.startsWith('m:')){const m=p.slice(2),b=agg([prevYm(m)]);h+=`<div class="sec">🔁 مقارنة مع الشهر لي فات</div><div class="card">`+driverNames(a).filter(n=>a.baqi[n]||b.baqi[n]).map(n=>{const x=a.baqi[n]||0,y=b.baqi[n]||0,pc=y?Math.round((x-y)/Math.abs(y)*100):0;return `<div class="row"><span>${esc(n)}</span><span>${money(x)} <span class="muted">مقابل ${fmtN(y)}</span> <b class="${pc<0?'neg':'pos'}"><span class="num">${y?(pc>0?'+':'')+pc+'%':'—'}</span></b></span></div>`}).join('')+`<div class="row"><span>الروسيطات</span><span>${money(a.ros)} <span class="muted">مقابل ${fmtN(b.ros)}</span></span></div></div>`}
  let ms=monthsRange().slice(-12);while(ms.length<12)ms.push(nextYm(ms[ms.length-1]));const data=ms.map(m=>{const x=agg([m]);return[m,x.ros,Math.max(0,x.baqiT)]});const mx=Math.max(1,...data.map(d=>Math.max(d[1],d[2])));
  h+=`<div class="sec">📈 آخر 12 شهر</div><div class="card"><div class="chart">`+data.map(d=>`<div class="col"><div class="bars"><div class="b bo" style="height:${d[1]/mx*100}%"></div><div class="b bb" style="height:${d[2]/mx*100}%"></div></div><div class="x">${d[0].slice(5)}/${d[0].slice(2,4)}</div></div>`).join('')+`</div><div class="leg"><span><i style="background:var(--amber)"></i>الروسيطات</span><span><i style="background:var(--blue)"></i>الباقي للسائقين</span></div></div>`;
  return h}
 // ---------- daily ----------
-function vDaily(){const m=UI.dm,a=agg([m]),med=consMed();let ds=S.days.filter(d=>ymOf(d.date)===m);
+function pickDf(i){const n=UI.dn[i];UI.df=UI.df===n?'':n;render()}
+function vDaily(){const m=UI.dm,a=agg([m]),med=consMed(),dn=driverNames(a);UI.dn=dn;let ds=S.days.filter(d=>ymOf(d.date)===m&&(!UI.df||d.d1===UI.df||d.d2===UI.df));
  const f=firstDate(),t=todayIso(),[y,mo]=m.split('-').map(Number),dim=new Date(y,mo,0).getDate(),items=ds.map(d=>({date:d.date,d}));
- for(let i=1;i<=dim;i++){const s=m+'-'+String(i).padStart(2,'0');if(s>=t)break;if(f&&s>=f&&!ds.some(d=>d.date===s))items.push({date:s,miss:1})}
+ for(let i=1;i<=dim;i++){const s=m+'-'+String(i).padStart(2,'0');if(s>=t)break;if(!UI.df&&f&&s>=f&&!ds.some(d=>d.date===s))items.push({date:s,miss:1})}
  items.sort((a,b)=>b.date.localeCompare(a.date));
  let h=`<select onchange="UI.dm=this.value;render()">${monthOpts(m)}</select>
- <div class="grid2" style="margin-top:10px">${stat('الروسيطات',a.ros,'amb')}${stat('الباقي للسائقين',a.baqiT,a.baqiT<0?'neg':'blue')}${stat('السومة',a.rec)}${stat('المازوط',a.fuel,'neg')}</div>
+ <div class="grid2" style="margin-top:10px">${stat('الروسيطات',a.ros,'amb')}${stat('السومة',a.rec)}${stat(S.ev.on?'الطاقة':'المازوط',a.fuel,'neg')}${stat('المصاريف',a.exp,'neg')}</div>
+ <div class="sec">👤 الباقي للسائقين</div><div class="grid2">${dn.map((n,i)=>`<div class="stat" style="${UI.df===n?'border:2px solid var(--amber);background:#fffaf0':''}" onclick="pickDf(${i})"><div class="v ${(a.baqi[n]||0)<0?'neg':'blue'}">${money(a.baqi[n]||0)}</div><div class="l">${esc(n)} — الباقي · ${a.work[n]||0} نهار خدمة</div></div>`).join('')}</div>
+ ${UI.df?`<div class="alert warn" style="margin-top:8px" onclick="UI.df='';render()">👤 كتشوف غير الأيام ديال ${esc(UI.df)} — ضغط هنا باش ترجع للكل</div>`:'<div class="muted" style="margin:6px 2px 0">ضغط على سائق باش تشوف غير الأيام ديالو</div>'}
  <button class="btn" onclick="openDay()">＋ زيد نهار جديد</button><div style="height:10px"></div>`;
  if(!items.length)h+=`<div class="card muted" style="text-align:center">ماكاين حتى نهار فهاد الشهر. ضغط على «زيد نهار جديد» باش تبدا.</div>`;
  h+=items.map(it=>{if(it.miss)return `<div class="card miss" onclick="openDay(null,'${it.date}')">⚠️ ${DAYS[pd(it.date).getDay()]} ${fd(it.date)} — ما تسجلش، ضغط باش تزيدو</div>`;
   const d=it.d,c=calc(d);return `<div class="card day" onclick="openDay('${d.id}')"><div class="dh"><b>${DAYS[pd(d.date).getDay()]} ${fd(d.date)}</b><b class="${c.baqi<0?'neg':'pos'}">${money(c.baqi)}</b></div>
-  <div class="pills">${d.d1?`<span class="pill">${esc(d.d1)}: ${esc(d.s1)}</span>`:''}${d.d2?`<span class="pill b">${esc(d.d2)}: ${esc(d.s2)}</span>`:''}${fuelOdd(d,med)?`<span class="pill" style="background:#fde6e3;color:#9c2619">⛽ استهلاك عالي ${num(d.cons).toFixed(2)}</span>`:''}</div>
-  <div class="mini"><span>السومة <b>${money(d.rec)}</b></span><span>الروسيطة <b>${money(c.ros)}</b></span><span>المازوط <b>${money(d.fuel)}</b></span><span>المسافة <b>${km(d.km)}</b></span></div>
+  <div class="pills">${d.d1?`<span class="pill">${esc(d.d1)}: ${esc(d.s1)}</span>`:''}${d.d2?`<span class="pill b">${esc(d.d2)}: ${esc(d.s2)}</span>`:''}${d.ev&&num(d.kwh)?`<span class="pill" style="background:#e4f3ea;color:#1a5e3b">⚡ ${fmtN(d.kwh)} kWh · توفير ${fmtN(num(d.dieselEq)-num(d.fuel))}</span>`:''}${fuelOdd(d,med)?`<span class="pill" style="background:#fde6e3;color:#9c2619">${d.ev?'⚡':'⛽'} استهلاك عالي ${num(d.cons).toFixed(2)}</span>`:''}</div>
+  <div class="mini"><span>السومة <b>${money(d.rec)}</b></span><span>الروسيطة <b>${money(c.ros)}</b></span><span>${d.ev?'الكهرباء':'المازوط'} <b>${money(d.fuel)}</b></span><span>المسافة <b>${km(d.km)}</b></span></div>
   ${d.expDesc||num(d.exp)?`<div class="desc">📝 ${esc(d.expDesc)} ${num(d.exp)?'('+fmtN(d.exp)+' DH)':''}</div>`:''}</div>`}).join('');
  return h}
 function optList(arr,sel,blank){let o=blank?`<option value="">${blank}</option>`:'';const a=[...arr];if(sel&&!a.includes(sel))a.push(sel);return o+a.map(x=>`<option ${x===sel?'selected':''}>${esc(x)}</option>`).join('')}
@@ -243,11 +248,11 @@ function openDay(id,date){const ex=id?S.days.find(x=>x.id===id):null,sorted=S.da
   v={date:dt,km:'',cons:last?last.cons:S.settings.cons,price:last?last.price:S.settings.price,fuel:0,rec:'',exp:'',expDesc:'',d1:ref?ref.d1:(S.settings.drivers[0]||''),s1,w1:shiftRate(s1),ded1:0,d2,s2,w2:d2?shiftRate(s2):0,ded2:0,exp2:0}}
  const sh=S.settings.shifts.map(s=>s.n),dr=S.settings.drivers,inp=(i,l,val,ro)=>`<div><label>${l}</label><input id="${i}" inputmode="decimal" value="${val===''?'':esc(val)}" ${ro?'readonly':''} oninput="dayRecalc('${i}')"></div>`;
  modal(`<button class="x2" onclick="closeModal()">✕</button><h2>${ex?'تعديل النهار':'نهار جديد'}</h2>
- <label>التاريخ</label><input type="date" id="f_date" value="${v.date}">
+ <label>التاريخ</label><input type="date" id="f_date" value="${v.date}" onchange="dateChanged()">
  <div class="grid2"><div><label>السائق الرئيسي</label><select id="f_d1">${optList(dr,v.d1,'— بلا —')}</select></div><div><label>نوع الدوام</label><select id="f_s1" onchange="$('#f_w1').value=shiftRate(this.value);dayRecalc()">${optList(sh,v.s1)}</select></div></div>
  <div class="grid2">${inp('f_w1','الروسيطة (DH)',v.w1)}${inp('f_ded1','خصم عطل (DH)',v.ded1||'')}</div>
  <div class="grid2">${inp('f_rec','مجموع السومة (DH)',v.rec)}${inp('f_km','المسافة (كم)',v.km)}</div>
- <div class="grid3">${inp('f_cons','استهلاك L/100',v.cons)}${inp('f_price','ثمن اللتر',v.price)}${inp('f_fuel','تكلفة المازوط',v.fuel)}</div>
+ <div id="f_en">${enBlock(v)}</div>
  <div class="grid2">${inp('f_exp','المصروف (DH)',v.exp)}<div><label>بيان المصروف</label><input id="f_expDesc" value="${esc(v.expDesc)}" placeholder="lavage, police…"></div></div>
  <div class="sub2"><label style="font-weight:800;color:var(--ink)">السائق البديل</label>
   <div class="grid2"><div><label>السائق</label><select id="f_d2" onchange="dayRecalc()">${optList(dr,v.d2,'— بلا —')}</select></div><div><label>نوع الدوام</label><select id="f_s2" onchange="$('#f_w2').value=shiftRate(this.value);dayRecalc()">${optList(sh,v.s2,'—')}</select></div></div>
@@ -257,12 +262,14 @@ function openDay(id,date){const ex=id?S.days.find(x=>x.id===id):null,sorted=S.da
  ${ex?`<button class="btn red" onclick="delDay('${ex.id}')">مسح هاد النهار</button>`:''}`);
  dayRecalc()}
 function dayRecalc(src){const g=i=>num($('#'+i).value);
+ if($('#f_pb'))return evRecalc(src);
  if(['f_km','f_cons','f_price'].includes(src))$('#f_fuel').value=r2(g('f_km')*g('f_cons')/100*g('f_price'));
  const d={rec:g('f_rec'),fuel:g('f_fuel'),exp:g('f_exp'),w1:g('f_w1'),ded1:g('f_ded1'),d2:$('#f_d2').value,w2:g('f_w2'),ded2:g('f_ded2')},c=calc(d);
  const md=consMed(),cw=md>0&&g('f_km')>20&&g('f_cons')>md*1.25;$('#f_prev').innerHTML=(cw?`<div class="alert bad" style="margin:0 0 8px">⛽ الاستهلاك عالي: العادة ${md.toFixed(2)} L/100</div>`:'')+`<div class="row"><span>الباقي للسائق الرئيسي</span><b style="color:${c.baqi<0?'#ff7b6b':'var(--amber)'}">${money(c.baqi)}</b></div><div class="row"><span>مجموع الروسيطات ديالك</span><b>${money(c.ros)}</b></div>`}
 function saveDay(id){const g=i=>num($('#'+i).value),date=$('#f_date').value;if(!date)return alert('ختار التاريخ');
  const dup=S.days.find(x=>x.date===date&&x.id!==id);if(dup)return alert('هاد النهار مسجل ديجا. سد هادي وحل النهار باش تعدلو.');
- const d2=$('#f_d2').value,o={date,km:g('f_km'),cons:g('f_cons'),price:g('f_price'),fuel:g('f_fuel'),rec:g('f_rec'),exp:g('f_exp'),expDesc:$('#f_expDesc').value.trim(),d1:$('#f_d1').value,s1:$('#f_s1').value,w1:g('f_w1'),ded1:g('f_ded1'),d2,s2:d2?$('#f_s2').value:'',w2:d2?g('f_w2'):0,ded2:d2?g('f_ded2'):0,exp2:g('f_exp2')};
+ const d2=$('#f_d2').value,isEv=!!$('#f_pb'),o={date,km:g('f_km'),cons:isEv?(g('f_km')?r2(g('f_kwh')/g('f_km')*100):0):g('f_cons'),price:isEv?g('f_tar'):g('f_price'),fuel:g('f_fuel'),rec:g('f_rec'),exp:g('f_exp'),expDesc:$('#f_expDesc').value.trim(),d1:$('#f_d1').value,s1:$('#f_s1').value,w1:g('f_w1'),ded1:g('f_ded1'),d2,s2:d2?$('#f_s2').value:'',w2:d2?g('f_w2'):0,ded2:d2?g('f_ded2'):0,exp2:g('f_exp2')};
+ if(isEv)Object.assign(o,{ev:true,cmode:UI.cm,pb:g('f_pb'),pa:g('f_pa'),kwh:g('f_kwh'),dieselEq:r2(g('f_km')*num(S.ev.refCons)/100*num(S.ev.refPrice))});else Object.assign(o,{ev:false});
  if(id){const i=S.days.findIndex(x=>x.id===id),old=S.days[i];if(old.kmAdded)S.maint.km=num(S.maint.km)+o.km-num(old.km);S.days[i]={...old,...o}}
  else{S.days.push({id:uid(),...o,kmAdded:true});S.maint.km=num(S.maint.km)+o.km}
  save();closeModal();UI.dm=ymOf(date);toast('تحفظ ✅');render()}
@@ -274,14 +281,14 @@ function vMaint(){const M=S.maint,rem=num(M.oilLast)+num(M.oilEvery)-num(M.km),i
  let h=`<div class="sec">🛡️ التأمين</div><div class="card"><label>تاريخ انتهاء التأمين</label><input type="date" value="${M.ins}" onchange="setM('ins',this.value)"><label>ثمن التأمين فالعام (DH)</label>${ni('insCost',M.insCost)}<div style="margin-top:8px">${badge(daysUntil(M.ins),15)}</div></div>
  <div class="sec">🔍 الفيزيت التقنية</div><div class="card"><label>تاريخ انتهاء الفيزيت</label><input type="date" value="${M.vt}" onchange="setM('vt',this.value)"><label>ثمن الفيزيت فالعام (DH)</label>${ni('vtCost',M.vtCost)}<div style="margin-top:8px">${badge(daysUntil(M.vt),30)}</div></div>
  <div class="sec">📅 التذكير فالكاليندري</div><div class="card"><div class="muted">كيزيد التأمين والفيزيت والأقساط فالكاليندري ديال الآيفون، مع تنبيه قبل 7 أيام وقبل نهار. عاودها ملي تبدل شي تاريخ.</div><button class="btn dark" onclick="addCal()">📅 زيد للكاليندري</button><button class="btn ghost" onclick="addCal(1)">📤 صيفط ملف الكاليندري (.ics)</button></div>
- <div class="sec">🛢️ الفيدانج</div><div class="card">
+ ${tiresHtml()}${S.ev.on?'':`<div class="sec">🛢️ الفيدانج</div><div class="card">
   <div class="grid2"><div><label>الكونتور دابا (كم)</label>${ni('km',M.km)}</div><div><label>كونتور آخر فيدانج</label>${ni('oilLast',M.oilLast)}</div></div>
   <div class="grid2"><div><label>كل شحال (كم)</label>${ni('oilEvery',M.oilEvery)}</div><div><label>نوع الفيدانج</label><input value="${esc(M.oilType)}" onchange="setM('oilType',this.value)"></div></div>
   <div class="row" style="margin-top:8px"><span>الفيدانج الجاي فـ</span><b class="num">${Math.round(num(M.oilLast)+num(M.oilEvery)).toLocaleString('en-US')}</b></div>
   <div class="row"><span>باقي</span><b class="${rem<=0?'neg':rem<=1000?'amb':'pos'}">${km(rem)}</b></div>
   <div class="row"><span>تاريخ آخر فيدانج</span><b>${fd(M.oilDate)}</b></div>
   <div class="muted">الكونتور كيتزاد بوحدو ملي كتسجل نهار جديد.</div>
-  <button class="btn dark" onclick="oilDone()">✅ درت الفيدانج اليوم</button></div>
+  <button class="btn dark" onclick="oilDone()">✅ درت الفيدانج اليوم</button></div>`}
  <div class="sec">💳 الأقساط</div><div class="card">
   <div class="grid3"><div><label>تاريخ البداية</label><input type="date" value="${M.instStart}" onchange="setM('instStart',this.value)"></div><div><label>عدد الأقساط</label>${ni('instCount',M.instCount)}</div><div><label>القسط الشهري</label>${ni('instAmt',M.instAmt)}</div></div>
   ${ii?`<div class="row" style="margin-top:8px"><span>أقساط فاتت</span><b>${ii.paid} / ${ii.count}</b></div><div class="row"><span>المبلغ الباقي</span><b>${money(ii.rest)}</b></div><div class="row"><span>القسط الجاي</span><b>${ii.next?fd(ii.next):'✅ تخلصو كاملين'}</b></div><div class="row"><span>نهاية الأقساط</span><b>${fd(ii.end)}</b></div>`:'<div class="muted" style="margin-top:8px">ماكاين حتى قسط. عمر الخانات إلا كان عندك كريدي.</div>'}</div>
@@ -340,8 +347,54 @@ function openAdv(id,kind){const a=id?S.advances.find(x=>x.id===id):{date:todayIs
 function saveAdv(id){const o={kind:$('#a_kind').value,date:$('#a_date').value,driver:$('#a_drv').value,amount:num($('#a_amt').value),note:$('#a_note').value.trim()};if(!o.date||!o.driver||!o.amount)return alert('عمر التاريخ والسائق والمبلغ');if(id)Object.assign(S.advances.find(x=>x.id===id),o);else S.advances.push({id:uid(),...o});save();closeModal();toast('تحفظ ✅');render()}
 function delAdv(id){if(!confirm('نمسحو هادي؟'))return;S.advances=S.advances.filter(x=>x.id!==id);save();closeModal();render()}
 // ---------- fuel check ----------
-function consMed(){const xs=S.days.filter(d=>num(d.km)>20&&num(d.cons)>0).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).map(d=>num(d.cons)).sort((a,b)=>a-b);if(xs.length<5)return 0;const m=Math.floor(xs.length/2);return xs.length%2?xs[m]:(xs[m-1]+xs[m])/2}
-function fuelOdd(d,med){if(med===undefined)med=consMed();return med>0&&num(d.km)>20&&num(d.cons)>med*1.25}
+function consMed(ev){const xs=S.days.filter(d=>!!d.ev===!!ev&&num(d.km)>20&&num(d.cons)>0).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).map(d=>num(d.cons)).sort((a,b)=>a-b);if(xs.length<5)return 0;const m=Math.floor(xs.length/2);return xs.length%2?xs[m]:(xs[m-1]+xs[m])/2}
+function fuelOdd(d,med){med=consMed(!!d.ev);return med>0&&num(d.km)>20&&num(d.cons)>med*1.25}
+
+// ---------- electric (BYD) ----------
+const isEvDate=dt=>!!(S.ev.on&&S.ev.from&&dt>=S.ev.from);
+function enBlock(v){if(!isEvDate(v.date)){return `<div class="grid3"><div><label>استهلاك L/100</label><input id="f_cons" inputmode="decimal" value="${v.ev?S.settings.cons:esc(v.cons)}" oninput="dayRecalc('f_cons')"></div><div><label>ثمن اللتر</label><input id="f_price" inputmode="decimal" value="${v.ev?S.settings.price:esc(v.price)}" oninput="dayRecalc('f_price')"></div><div><label>تكلفة المازوط</label><input id="f_fuel" inputmode="decimal" value="${v.ev?0:esc(v.fuel)}" oninput="dayRecalc('f_fuel')"></div></div>`}
+ const lastEv=S.days.filter(d=>d.ev).sort((a,b)=>a.date.localeCompare(b.date)).pop();UI.cm=v.ev?(v.cmode||'home'):(lastEv?lastEv.cmode||'home':'home');
+ const val=(k,dflt)=>v.ev?(v[k]===''||v[k]===undefined?dflt:v[k]):dflt,x=(i,l,val,ro)=>`<div><label>${l}</label><input id="${i}" inputmode="decimal" value="${val===''?'':esc(val)}" ${ro?'readonly':''} oninput="dayRecalc('${i}')"></div>`;
+ return `<div class="sub2" style="background:#e6f5ec;margin-top:10px"><label style="font-weight:800;color:var(--ink)">⚡ الشحن ديال اليوم</label>
+ <div class="seg" id="f_cm">${[['home','🏠 الدار'],['borne','🔌 البورن'],['none','بلا شحن']].map(m=>`<button type="button" data-m="${m[0]}" class="${UI.cm===m[0]?'on':''}" onclick="setCm('${m[0]}')">${m[1]}</button>`).join('')}</div>
+ <div class="grid2" id="f_homeRow">${x('f_pb','% الباطري قبل الشحن',val('pb',''))}${x('f_pa','% الباطري بعد الشحن',val('pa',''))}</div>
+ <div class="grid3">${x('f_kwh','kWh',val('kwh',''))}${x('f_tar','ثمن kWh',val('price',S.ev.tariff))}${x('f_fuel','تكلفة الكهرباء',val('fuel',''))}</div></div>`}
+function setCm(m){UI.cm=m;document.querySelectorAll('#f_cm button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));evRecalc('mode')}
+function dateChanged(){const dt=$('#f_date').value,isEv=!!$('#f_pb');if(isEvDate(dt)!==isEv){$('#f_en').innerHTML=enBlock({date:dt,cons:S.settings.cons,price:S.settings.price,fuel:''});dayRecalc()}}
+function evRecalc(src){const g=i=>num($('#'+i).value),m=UI.cm;$('#f_homeRow').style.display=m==='home'?'grid':'none';$('#f_kwh').readOnly=m!=='borne';
+ if(m==='none'){$('#f_kwh').value=0;$('#f_fuel').value=0}
+ else{if(m==='home'&&['f_pb','f_pa','mode'].includes(src))$('#f_kwh').value=r2(Math.max(0,g('f_pa')-g('f_pb'))/100*num(S.ev.battery));if(['f_pb','f_pa','f_kwh','f_tar','mode'].includes(src))$('#f_fuel').value=r2(g('f_kwh')*g('f_tar'))}
+ const kmv=g('f_km'),kwh=g('f_kwh'),eq=kmv*num(S.ev.refCons)/100*num(S.ev.refPrice),cons=kmv?kwh/kmv*100:0,md=consMed(true),cw=md>0&&kmv>20&&cons>md*1.25;
+ const d={rec:g('f_rec'),fuel:g('f_fuel'),exp:g('f_exp'),w1:g('f_w1'),ded1:g('f_ded1'),d2:$('#f_d2').value,w2:g('f_w2'),ded2:g('f_ded2')},c=calc(d);
+ $('#f_prev').innerHTML=(cw?`<div class="alert bad" style="margin:0 0 8px">⚡ الاستهلاك عالي: العادة ${md.toFixed(2)} kWh/100</div>`:'')+`<div class="row"><span>الباقي للسائق الرئيسي</span><b style="color:${c.baqi<0?'#ff7b6b':'var(--amber)'}">${money(c.baqi)}</b></div><div class="row"><span>مجموع الروسيطات ديالك</span><b>${money(c.ros)}</b></div><div class="row"><span>الاستهلاك</span><b class="num">${cons?cons.toFixed(2):'—'} kWh/100</b></div><div class="row"><span>لو كان ديزل كون خلصتي</span><b>${money(eq)}</b></div><div class="row"><span>⚡ التوفير ديال اليوم</span><b style="color:#7ee2a8">${money(eq-g('f_fuel'))}</b></div>`}
+function evTotals(){const a=agg(monthsRange()),net=num(S.ev.price)-num(S.ev.subsidy),months=new Set(S.days.filter(d=>d.ev).map(d=>ymOf(d.date))).size;return{a,net,rest:net-a.save,pct:net?Math.min(100,Math.max(0,a.save/net*100)):0,months,perMonth:months?a.save/months:0}}
+function evCard(a){const T=evTotals(),eta=T.perMonth>0&&T.rest>0?Math.ceil(T.rest/T.perMonth):0;
+ return `<div class="sec">⚡ ${esc(S.ev.model)}</div><div class="meter" style="background:#0f3d2a"><div class="t">التوفير من المازوط فهاد الفترة</div><div class="v" style="color:#7ee2a8">${money(a.save)}</div>
+ <div class="f">الكهرباء ${fmtN(a.fuel)} DH · <span class="num">${fmtN(a.kwh)}</span> kWh · ${a.evKm?'<span class="num">'+(a.kwh/a.evKm*100).toFixed(2)+'</span> kWh/100':'—'}</div></div>
+ <div class="card"><div class="row"><span>🎯 نقطة التعادل (${money(T.net)})</span><b>${T.rest>0?'باقي '+money(T.rest):'✅ وصلتي!'}</b></div>
+ <div style="height:10px;background:#e7eaee;border-radius:6px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${T.pct}%;background:var(--green)"></div></div>
+ <div class="muted">مجموع التوفير: ${money(T.a.save)} (<span class="num">${T.pct.toFixed(1)}%</span>)${eta?' · تقريبا '+eta+' شهر باقي':''}</div></div>`}
+function batteryHtml(){const f=S.ev.from;if(!f)return '';const s=pd(f),rows=[];for(let i=0;i<10;i++){const a=iso(new Date(s.getFullYear()+i,s.getMonth(),s.getDate())),b=iso(new Date(s.getFullYear()+i+1,s.getMonth(),s.getDate()));if(a>todayIso())break;const ds=S.days.filter(d=>d.ev&&d.date>=a&&d.date<b),k=ds.reduce((x,d)=>x+num(d.km),0),e=ds.reduce((x,d)=>x+num(d.kwh),0);rows.push({i:i+1,k,c:k?e/k*100:0})}
+ const base=rows[0]&&rows[0].c;
+ return `<h3 style="margin:14px 0 10px">🔋 صحة الباطري عام بعام</h3><div class="tbl"><table><tr><th>العام</th><th>كم</th><th>kWh/100</th><th>الفرق</th><th>الحالة</th></tr>${rows.map(r=>{const df=base&&r.c&&r.i>1?(r.c-base)/base*100:null;return `<tr><td>العام ${r.i}</td><td>${Math.round(r.k).toLocaleString('en-US')}</td><td>${r.c?r.c.toFixed(2):'—'}</td><td>${r.i===1?'مرجع':df===null?'—':'<span class="num">'+(df>0?'+':'')+df.toFixed(1)+'%</span>'}</td><td>${r.i===1||df===null?'—':df<5?'✅ عادي':df<15?'⚠️ راقب':'🔴 شوف الضمان'}</td></tr>`}).join('')}</table></div><div class="muted" style="margin:-4px 2px 10px">إلا الاستهلاك طلع بزاف على العام الأول، يقدر يكون الباطري بدا كيضعف. الضمان ديال الباطري: ${esc(S.ev.batWarranty)}.</div>`}
+function tiresHtml(){const M=S.maint,rem=num(M.tireKm)+num(M.tireEvery)-num(M.km),ni=(k,v)=>`<input inputmode="decimal" value="${esc(v)}" onchange="setM('${k}',this.value,1)">`;
+ return `<div class="sec">🛞 الإطارات (البنوات)</div><div class="card"><div class="grid2"><div><label>الكونتور دابا (كم)</label>${ni('km',M.km)}</div><div><label>كونتور آخر تبديل</label>${ni('tireKm',M.tireKm)}</div></div><label>كل شحال (كم)</label>${ni('tireEvery',M.tireEvery)}
+ ${num(M.tireKm)>0?`<div class="row" style="margin-top:8px"><span>باقي</span><b class="${rem<=0?'neg':rem<=1500?'amb':'pos'}">${km(rem)}</b></div>`:''}<div class="row"><span>تاريخ آخر تبديل</span><b>${fd(M.tireDate)}</b></div>
+ <button class="btn dark" onclick="tireDone()">✅ بدلت الإطارات اليوم</button></div>`}
+function tireDone(){if(!confirm('نسجلو تبديل الإطارات اليوم فـ '+Math.round(num(S.maint.km))+' كم؟'))return;S.maint.tireKm=num(S.maint.km);S.maint.tireDate=todayIso();save();render();toast('تسجل ✅')}
+function setEv(k,v,n){S.ev[k]=n?num(v):v;save();render();toast('تحفظ ✅')}
+function evSettings(){const e=S.ev,ti=(k,l,n)=>`<div><label>${l}</label><input ${n?'inputmode="decimal"':''} value="${esc(e[k])}" onchange="setEv('${k}',this.value,${n?1:0})"></div>`;
+ return `<div class="sec">⚡ الطاكسي الكهربائي</div><div class="card">${e.on?`<div class="alert ok" style="margin:0 0 8px">⚡ مفعّل من ${fd(e.from)} — الأيام من هاد التاريخ كتسجل بالكهرباء</div>`:`<div class="muted">ملي تشري الطوموبيل الجديدة، عمر المعلومات وضغط على الزر لتحت. الأيام القدام كيبقاو بالمازوط، والجداد كيتسجلو بالكهرباء.</div>`}
+ <div class="grid2">${ti('model','الموديل')}${ti('range','الأوطونومي (كم)',1)}</div>
+ <div class="grid2">${ti('price','الثمن (DH)',1)}${ti('subsidy','دعم الدولة (DH)',1)}</div>
+ <div class="row"><span>الثمن الصافي</span><b>${money(num(e.price)-num(e.subsidy))}</b></div>
+ <div class="grid2">${ti('battery','سعة الباطري (kWh)',1)}${ti('tariff','ثمن kWh (DH)',1)}</div>
+ <div class="grid2">${ti('refCons','ديزل للمقارنة L/100',1)}${ti('refPrice','ثمن اللتر للمقارنة',1)}</div>
+ <div class="grid2">${ti('batWarranty','ضمان الباطري')}${ti('motorWarranty','ضمان المحرك')}</div>
+ ${e.on?`<label>تاريخ البداية</label><input type="date" value="${e.from}" onchange="setEv('from',this.value)"><button class="btn red" onclick="evOff()">رجع للمازوط</button>`:`<button class="btn" style="background:var(--green);color:#fff" onclick="evOn()">🔌 بدلت للطاكسي الكهربائي</button>`}</div>`}
+function evOn(){const d=prompt('من أي نهار بديتي بالكهربائي؟ (مثلا 2026-10-15)',todayIso());if(!d)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return alert('كتب التاريخ بهاد الشكل: 2026-10-15');const k=prompt('شحال فالكونتور ديال الطوموبيل الجديدة؟ (كم)','0');if(k===null)return;
+ S.ev.on=true;S.ev.from=d;S.maint.km=num(k);S.maint.tireKm=num(k);S.maint.tireDate=d;save();render();alert('⚡ مبروك! من '+d+' الأيام كيتسجلو بالكهرباء. ما تنساش تبدل تاريخ التأمين والفيزيت ديال الطوموبيل الجديدة فالصيانة.')}
+function evOff(){if(!confirm('نطفيو الكهربائي؟ الأيام لي تسجلو بالكهرباء كيبقاو.'))return;S.ev.on=false;save();render()}
 // ---------- calendar ----------
 function icsText(){const M=S.maint,ev=[],nm=S.settings.name||'الطاكسي',st=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
  const add=(d,t,k)=>{if(!d)return;const a=d.replace(/-/g,''),n=pd(d);n.setDate(n.getDate()+1);ev.push(['BEGIN:VEVENT','UID:taxi-'+k+'-'+a+'@mbsimo95','DTSTAMP:'+st,'DTSTART;VALUE=DATE:'+a,'DTEND;VALUE=DATE:'+iso(n).replace(/-/g,''),'SUMMARY:'+t,'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+t,'TRIGGER:-P7D','END:VALARM','BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+t,'TRIGGER:-PT15H','END:VALARM','END:VEVENT'].join('\r\n'))};
@@ -353,7 +406,7 @@ function addCal(share){const t=icsText();if(!t)return alert('دخل تاريخ �
  window.open('data:text/calendar;charset=utf-8,'+encodeURIComponent(t),'_blank')||(location.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(t))}
 // ---------- reports ----------
 function monthReport(m){const a=agg([m]),ds=S.days.filter(d=>ymOf(d.date)===m).sort((x,y)=>x.date.localeCompare(y.date)),ls=S.losses.filter(l=>ymOf(l.date||'')===m),names=driverNames(a).filter(n=>a.rosBy[n]||a.baqi[n]);
- const R=[['rec','مجموع السومة',a.rec],['fuel','تكلفة المازوط',a.fuel],['exp','المصاريف اليومية',a.exp]];
+ const R=[['rec','مجموع السومة',a.rec],['fuel',S.ev.on?'تكلفة المازوط / الكهرباء':'تكلفة المازوط',a.fuel],['exp','المصاريف اليومية',a.exp]];if(a.evKm)R.push(['save','⚡ التوفير من المازوط',a.save]);
  names.forEach(n=>R.push(['ros:'+n,esc(n)+': الروسيطة ('+(a.work[n]||0)+' نهار)',a.rosBy[n]||0]));
  R.push(['ros','<b>مجموع الروسيطات</b>',a.ros]);
  names.filter(n=>n in a.baqi).forEach(n=>R.push(['baqi:'+n,'الباقي لـ '+esc(n),a.baqi[n]]));
@@ -361,7 +414,7 @@ function monthReport(m){const a=agg([m]),ds=S.days.filter(d=>ymOf(d.date)===m).s
  UI.repKeys=R.map(r=>r[0]);UI.repVals={};R.forEach(r=>UI.repVals[r[0]]=r[2]);const sel=S.settings.repSel||[];
  let h=`<h3 style="margin:6px 0 4px">كشف شهري — ${fym(m)}</h3><div class="muted noprint" style="margin-bottom:8px">ضغط على البنود لي بغيتي تجمعهم ✓</div><div class="card">`+
  R.map((r,i)=>`${i===1?`<div class="row"><span>الكيلومترات</span><b>${km(a.km)}</b></div>`:''}<div class="row sel ${sel.includes(r[0])?'on':''}" id="sr${i}" onclick="toggleSel(${i})"><span><i class="ck noprint">${sel.includes(r[0])?'✓':''}</i>${r[1]}</span><b class="${r[0]==='net'?(r[2]<0?'neg':'pos'):r[2]<0?'neg':''}">${money(r[2])}</b></div>`).join('')+`</div><div class="selbar noprint" id="selbar">${selHtml()}</div>`;
- h+=`<div class="tbl"><table><tr><th>التاريخ</th><th>السائق</th><th>كم</th><th>السومة</th><th>المازوط</th><th>المصروف</th><th>الروسيطة</th><th>الباقي</th></tr>`+ds.map(d=>{const c=calc(d);return `<tr><td>${fd(d.date)}</td><td>${esc(d.d1)}${d.d2?' + '+esc(d.d2):''}</td><td>${Math.round(num(d.km))}</td><td>${fmtN(d.rec)}</td><td>${fmtN(d.fuel)}</td><td>${fmtN(c.expT)}</td><td>${fmtN(c.ros)}</td><td class="${c.baqi<0?'neg':''}">${fmtN(c.baqi)}</td></tr>`}).join('')+`<tr class="tot"><td>المجموع</td><td></td><td>${Math.round(a.km)}</td><td>${fmtN(a.rec)}</td><td>${fmtN(a.fuel)}</td><td>${fmtN(a.exp)}</td><td>${fmtN(a.ros)}</td><td>${fmtN(a.baqiT)}</td></tr></table></div>`;
+ h+=`<div class="tbl"><table><tr><th>التاريخ</th><th>السائق</th><th>كم</th><th>السومة</th><th>${S.ev.on?'الطاقة':'المازوط'}</th><th>المصروف</th><th>الروسيطة</th><th>الباقي</th></tr>`+ds.map(d=>{const c=calc(d);return `<tr><td>${fd(d.date)}</td><td>${esc(d.d1)}${d.d2?' + '+esc(d.d2):''}</td><td>${Math.round(num(d.km))}</td><td>${fmtN(d.rec)}</td><td>${fmtN(d.fuel)}</td><td>${fmtN(c.expT)}</td><td>${fmtN(c.ros)}</td><td class="${c.baqi<0?'neg':''}">${fmtN(c.baqi)}</td></tr>`}).join('')+`<tr class="tot"><td>المجموع</td><td></td><td>${Math.round(a.km)}</td><td>${fmtN(a.rec)}</td><td>${fmtN(a.fuel)}</td><td>${fmtN(a.exp)}</td><td>${fmtN(a.ros)}</td><td>${fmtN(a.baqiT)}</td></tr></table></div>`;
  if(ls.length)h+=`<div class="tbl"><table><tr><th>التاريخ</th><th>الخسارة</th><th>المبلغ</th></tr>${ls.map(l=>`<tr><td>${fd(l.date)}</td><td>${esc(l.desc)}</td><td>${fmtN(l.amount)}</td></tr>`).join('')}</table></div>`;
  return h}
 function selHtml(){const sel=(S.settings.repSel||[]).filter(k=>k in (UI.repVals||{}));if(!sel.length)return `<span style="color:#aab4c0;font-size:13.5px">ماختاريتي والو — ضغط على البنود الفوق</span>`;
@@ -370,7 +423,7 @@ function toggleSel(i){const k=UI.repKeys[i],a=S.settings.repSel=S.settings.repSe
 function clearSel(){S.settings.repSel=[];save();render()}
 function yearReport(y){const ms=monthsRange().filter(m=>m.startsWith(y)&&m<=ymOf(todayIso())),rows=ms.map(m=>[m,agg([m])]),T=agg(ms);
  const tr=(l,a,c='')=>`<tr class="${c}"><td>${l}</td><td>${fmtN(a.ros)}</td><td>${fmtN(a.baqiT)}</td><td>${fmtN(a.fuel)}</td><td>${fmtN(a.exp)}</td><td>${fmtN(a.loss)}</td><td>${fmtN(a.fixed)}</td><td class="${a.net<0?'neg':''}">${fmtN(a.net)}</td></tr>`;
- return `<h3 style="margin:6px 0 10px">ملخص سنة ${y}</h3><div class="tbl"><table><tr><th>الشهر</th><th>الروسيطات</th><th>الباقي للسائقين</th><th>المازوط</th><th>المصاريف</th><th>الخسائر</th><th>الثابتة</th><th>الصافي</th></tr>${rows.map(r=>tr(fym(r[0]),r[1])).join('')}${tr('المجموع',T,'tot')}</table></div>`}
+ return `<h3 style="margin:6px 0 10px">ملخص سنة ${y}</h3><div class="tbl"><table><tr><th>الشهر</th><th>الروسيطات</th><th>الباقي للسائقين</th><th>الطاقة</th><th>المصاريف</th><th>الخسائر</th><th>الثابتة</th><th>الصافي</th></tr>${rows.map(r=>tr(fym(r[0]),r[1])).join('')}${tr('المجموع',T,'tot')}</table></div>`}
 function driversReport(y){const ms=monthsRange().filter(m=>m.startsWith(y)&&m<=ymOf(todayIso())),T=agg(ms),names=driverNames(T);
  return `<h3 style="margin:6px 0 10px">ملخص السائقين — ${y}</h3><div class="muted" style="margin-bottom:6px">الباقي للسائق (عدد أيام الخدمة)</div><div class="tbl"><table><tr><th>الشهر</th>${names.map(n=>`<th>${esc(n)}</th>`).join('')}</tr>${ms.map(m=>{const a=agg([m]);return `<tr><td>${fym(m)}</td>${names.map(n=>`<td>${fmtN(a.baqi[n]||0)} <span class="muted">(${a.work[n]||0})</span></td>`).join('')}</tr>`}).join('')}<tr class="tot"><td>المجموع</td>${names.map(n=>`<td>${fmtN(T.baqi[n]||0)} (${T.work[n]||0})</td>`).join('')}</tr></table></div>
  <div class="tbl"><table><tr><th>السائق</th><th>الروسيطة لي خلص</th><th>أيام الخدمة</th></tr>${names.map(n=>`<tr><td>${esc(n)}</td><td>${fmtN(T.rosBy[n]||0)}</td><td>${T.work[n]||0}</td></tr>`).join('')}</table></div>`}
@@ -384,7 +437,8 @@ function analysis(p){const ms=periodMonths(p),a=agg(ms),M=S.maint,yr=ms.length/1
  <div class="row"><span><b>= الربح الحقيقي</b></span><b class="${real<0?'neg':'pos'}" style="font-size:18px">${money(real)}</b></div><div class="row"><span>المتوسط فالشهر</span><b>${money(ms.length?real/ms.length:0)}</b></div></div>
  ${!num(M.insCost)||!num(M.vtCost)?'<div class="muted noprint" style="margin:-4px 2px 10px">💡 دخل ثمن التأمين والفيزيت فالعام فصفحة الصيانة باش يتحسبو هنا.</div>':''}`;
  const pk=v=>a.km?money(v/a.km):'—';
- h+=`<h3 style="margin:14px 0 10px">🛣️ لكل كيلومتر</h3><div class="card"><div class="row"><span>السومة لكل كم</span><b>${pk(a.rec)}</b></div><div class="row"><span>المازوط لكل كم</span><b>${pk(a.fuel)}</b></div><div class="row"><span>الروسيطة لكل كم</span><b>${pk(a.ros)}</b></div><div class="row"><span>الباقي للسائق لكل كم</span><b>${pk(a.baqiT)}</b></div></div>`;
+ if(S.ev.on)h+=batteryHtml();
+ h+=`<h3 style="margin:14px 0 10px">🛣️ لكل كيلومتر</h3><div class="card"><div class="row"><span>السومة لكل كم</span><b>${pk(a.rec)}</b></div><div class="row"><span>${S.ev.on?'الطاقة':'المازوط'} لكل كم</span><b>${pk(a.fuel)}</b></div><div class="row"><span>الروسيطة لكل كم</span><b>${pk(a.ros)}</b></div><div class="row"><span>الباقي للسائق لكل كم</span><b>${pk(a.baqiT)}</b></div></div>`;
  const W=[1,2,3,4,5,6,0].map(i=>{const x=ds.filter(d=>pd(d.date).getDay()===i&&isWork(d.s1)&&num(d.rec)>0),n=x.length;return{i,n,rec:n?x.reduce((s,d)=>s+num(d.rec),0)/n:0,baqi:n?x.reduce((s,d)=>s+calc(d).baqi,0)/n:0,km:n?x.reduce((s,d)=>s+num(d.km),0)/n:0}}),best=Math.max(...W.map(w=>w.rec));
  h+=`<h3 style="margin:14px 0 10px">📆 شمن نهار كيجيب أكثر؟</h3><div class="tbl"><table><tr><th>النهار</th><th>الأيام</th><th>متوسط السومة</th><th>متوسط الباقي</th><th>متوسط كم</th></tr>${W.map(w=>`<tr class="${w.n&&w.rec===best?'tot':''}"><td>${w.n&&w.rec===best?'⭐ ':''}${DAYS[w.i]}</td><td>${w.n}</td><td>${fmtN(w.rec)}</td><td>${fmtN(w.baqi)}</td><td>${Math.round(w.km)}</td></tr>`).join('')}</table></div>`;
  const odd=ds.filter(d=>fuelOdd(d,med));
@@ -398,6 +452,7 @@ function vSet(){const s=S.settings;
  <label>اللوغو (كيبان فالـ PDF)</label>${s.logo?`<img class="logo" src="${s.logo}" style="display:block;margin-bottom:6px">`:''}<input type="file" accept="image/*" onchange="setLogo(this)">${s.logo?`<button class="btn sm red" style="margin-top:6px" onclick="setS('logo','')">مسح اللوغو</button>`:''}</div>
  <div class="sec">👤 السائقين</div><div class="card">${s.drivers.map((d,i)=>`<div class="row"><span>${esc(d)}</span><button class="btn sm red" onclick="delDriver(${i})">✕</button></div>`).join('')}<div style="display:flex;gap:8px;margin-top:8px"><input id="nd" placeholder="سمية السائق"><button class="btn sm" onclick="addDriver()">زيد</button></div></div>
  <div class="sec">💰 أنواع الدوام والروسيطة</div><div class="card">${s.shifts.map((x,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px"><input value="${esc(x.n)}" onchange="setShift(${i},'n',this.value)"><input style="width:110px" inputmode="decimal" value="${x.r}" onchange="setShift(${i},'r',this.value)"><button class="btn sm red" onclick="delShift(${i})">✕</button></div>`).join('')}<button class="btn ghost" onclick="addShift()">＋ زيد نوع دوام</button><div class="muted" style="margin-top:8px">تبديل الثمن هنا كيأثر غير على الأيام الجاية، القدام كيبقاو بحالهم.</div></div>
+ ${evSettings()}
  <div class="sec">⛽ المازوط (القيم الأولى)</div><div class="card grid2"><div><label>استهلاك L/100</label><input inputmode="decimal" value="${s.cons}" onchange="setS('cons',this.value,1)"></div><div><label>ثمن اللتر</label><input inputmode="decimal" value="${s.price}" onchange="setS('price',this.value,1)"></div></div>
  <div class="sec">🔒 الكود</div><div class="card"><div class="row"><span>${s.pin?'الكود مفعّل ✅':'ماكاينش كود'}</span><span><button class="btn sm" onclick="setPin()">${s.pin?'بدل الكود':'دير كود'}</button> ${s.pin?`<button class="btn sm red" onclick="if(confirm('نحيدو الكود؟'))setS('pin','')">حيد</button>`:''}</span></div></div>
  <div class="sec">💾 النسخة الاحتياطية</div><div class="card"><div class="muted">آخر نسخة: ${S.lastBackup?fd(S.lastBackup):'ماعمرك درتي'}. المعلومات كاينة غير فهاد التيليفون، دير نسخة كل سيمانة وحطها فـ Fichiers ولا iCloud.</div>

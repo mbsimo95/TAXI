@@ -457,7 +457,7 @@ function vSet(){const s=S.settings;
  <div class="sec">🔒 الكود</div><div class="card"><div class="row"><span>${s.pin?'الكود مفعّل ✅':'ماكاينش كود'}</span><span><button class="btn sm" onclick="setPin()">${s.pin?'بدل الكود':'دير كود'}</button> ${s.pin?`<button class="btn sm red" onclick="if(confirm('نحيدو الكود؟'))setS('pin','')">حيد</button>`:''}</span></div></div>
  <div class="sec">💾 النسخة الاحتياطية</div><div class="card"><div class="muted">آخر نسخة: ${S.lastBackup?fd(S.lastBackup):'ماعمرك درتي'}. المعلومات كاينة غير فهاد التيليفون، دير نسخة كل سيمانة وحطها فـ Fichiers ولا iCloud.</div>
  <button class="btn dark" onclick="exportJSON()">⬇️ دير نسخة احتياطية (JSON)</button><label class="btn ghost" style="text-align:center;margin-top:10px;color:var(--ink);font-size:16px">⬆️ رجع من نسخة<input type="file" accept=".json,application/json" style="display:none" onchange="importJSON(this)"></label>
- <button class="btn red" onclick="resetAll()">مسح كلشي</button></div><div class="muted" style="text-align:center;margin:14px 0">TAXI · v1.0</div>`}
+ <button class="btn red" onclick="resetAll()">مسح كلشي</button></div><div class="muted" style="text-align:center;margin:14px 0">TAXI · v1.1 ☁️</div>`}
 function addDriver(){const n=$('#nd').value.trim();if(!n)return;if(!S.settings.drivers.includes(n))S.settings.drivers.push(n);save();render()}
 function delDriver(i){if(!confirm('نحيدو '+S.settings.drivers[i]+' من اللائحة؟ (الأيام القدام كيبقاو)'))return;S.settings.drivers.splice(i,1);save();render()}
 function setShift(i,k,v){S.settings.shifts[i][k]=k==='r'?num(v):v.trim();save();toast('تحفظ ✅')}
@@ -478,5 +478,105 @@ function press(k){if(k==='⌫')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;d
 document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(S&&hiddenAt&&Date.now()-hiddenAt>60000){lock();render()}});
 boot();
 </script>
+<script>
+/* ================= Synchronisation Supabase (TAXI) ================= */
+(function(){
+const CFG_K='taxi_sync_cfg',SES_K='taxi_sync_session',SH_K='taxi_sync_shadow',CUR_K='taxi_sync_cursor',TBL='taxi_records';
+const ARR=['days','losses','fixed','advances'],OBJ=['settings','maint','ev'],LOCAL=['pin'];
+const ld=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
+const st=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const DEF={url:'https://gevcrdjmiiapvmceimbz.supabase.co',keys:['sb_publishable_bNRZp41kkcPc_8g5LOWH0g_G_E4zOzB','sb_publishable_bN-RZp41kkcPc_8g5LOWH0g_G_E4zOzB']};
+let cfg=ld(CFG_K)||{url:DEF.url,key:DEF.keys[0]},ses=ld(SES_K),busy=false,again=false,timer=null,lastErr='',lastOk=0;
+const on=()=>!!(cfg.url&&cfg.key&&ses&&ses.refresh_token);
+const clean=u=>String(u||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'');
+async function auth(body,grant){
+  const r=await fetch(cfg.url+'/auth/v1/token?grant_type='+grant,{method:'POST',headers:{apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){if(grant==='refresh_token'&&(r.status===400||r.status===401)){ses=null;st(SES_K,null)}const er=new Error(j.error_description||j.msg||j.message||('خطأ '+r.status));er.status=r.status;er.badKey=r.status===401&&/api ?key/i.test(JSON.stringify(j));throw er}
+  ses={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+((j.expires_in||3600)-60)*1000,email:(j.user&&j.user.email)||(ses&&ses.email)||body.email};
+  st(SES_K,ses);return ses}
+async function tok(){if(!ses)throw new Error('ماشي متصل');if(Date.now()>ses.expires_at)await auth({refresh_token:ses.refresh_token},'refresh_token');return ses.access_token}
+async function api(path,opt){opt=opt||{};const t=await tok();
+  const r=await fetch(cfg.url+'/rest/v1/'+path,Object.assign({},opt,{headers:Object.assign({apikey:cfg.key,Authorization:'Bearer '+t,'Content-Type':'application/json'},opt.headers||{})}));
+  const tx=await r.text();if(!r.ok){let m=tx;try{const j=JSON.parse(tx);m=j.message||j.hint||tx}catch(e){}throw new Error(m||('خطأ '+r.status))}
+  return tx?JSON.parse(tx):null}
+function recs(){const m={};ARR.forEach(k=>(S[k]||[]).forEach(x=>{if(x&&x.id!=null)m[k+'|'+x.id]=JSON.stringify(x)}));
+  OBJ.forEach(k=>{let o=Object.assign({},S[k]||{});if(k==='settings')LOCAL.forEach(f=>delete o[f]);m[k+'|main']=JSON.stringify(o)});return m}
+async function push(){const sh=ld(SH_K)||{},cur=recs(),rows=[];
+  for(const k in cur)if(sh[k]!==cur[k]){const i=k.indexOf('|');rows.push({coll:k.slice(0,i),id:k.slice(i+1),data:JSON.parse(cur[k]),deleted:false})}
+  for(const k in sh)if(!(k in cur)){const i=k.indexOf('|');rows.push({coll:k.slice(0,i),id:k.slice(i+1),data:null,deleted:true})}
+  for(let i=0;i<rows.length;i+=200)await api(TBL+'?on_conflict=coll,id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows.slice(i,i+200))});
+  const sh2=Object.assign({},sh);rows.forEach(r=>{const k=r.coll+'|'+r.id;if(r.deleted)delete sh2[k];else sh2[k]=cur[k]});st(SH_K,sh2);return rows.length}
+function apply(r){
+  if(ARR.includes(r.coll)){const a=S[r.coll]=S[r.coll]||[];const i=a.findIndex(x=>String(x.id)===String(r.id));
+    if(r.deleted){if(i>=0)a.splice(i,1)}else if(r.data){if(i>=0)a[i]=r.data;else a.push(r.data)}}
+  else if(OBJ.includes(r.coll)&&!r.deleted&&r.data){
+    if(r.coll==='settings'){const keep={};LOCAL.forEach(f=>keep[f]=S.settings[f]);S.settings=Object.assign({},S.settings,r.data,keep)}
+    else S[r.coll]=Object.assign({},S[r.coll],r.data)}}
+async function pull(full){let n=0;for(;;){const c=full?null:ld(CUR_K);let q=TBL+'?select=coll,id,data,deleted,updated_at&order=updated_at.asc&limit=1000';
+  if(c)q+='&updated_at=gt.'+encodeURIComponent(c);full=false;
+  const rows=await api(q)||[];if(!rows.length)break;
+  const sh=ld(SH_K)||{},touched=rows.map(r=>r.coll+'|'+r.id);rows.forEach(apply);const cur=recs();
+  touched.forEach(k=>{if(k in cur)sh[k]=cur[k];else delete sh[k]});st(SH_K,sh);st(CUR_K,rows[rows.length-1].updated_at);n+=rows.length;if(rows.length<1000)break}
+  return n}
+function paint(){const e=document.getElementById('syncDot');if(e){e.textContent=!on()?'':busy?'☁️…':lastErr?'☁️⚠️':'☁️✓';e.title=lastErr||''}
+  if(typeof UI!=='undefined'&&UI.tab==='set'){const s=document.getElementById('syncState');if(s)s.innerHTML=stateHtml()}}
+async function sync(){if(!on())return;if(busy){again=true;return}busy=true;paint();
+  try{await push();const n=await pull();if(n){ORIG_SAVE();if(!document.querySelector('#modal.show'))render()}lastOk=Date.now();lastErr=''}
+  catch(e){lastErr=String((e&&e.message)||e)}finally{busy=false;paint();if(again){again=false;setTimeout(sync,300)}}}
+function later(){clearTimeout(timer);timer=setTimeout(sync,1500)}
+const ORIG_SAVE=save;
+save=function(){ORIG_SAVE();if(on())later()};
+setInterval(()=>{if(!document.hidden)sync()},20000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
+window.addEventListener('online',sync);
+const esc2=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function stateHtml(){if(!on())return '';const t=lastOk?new Date(lastOk).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
+  return `<div class="row"><span>الحساب</span><b>${esc2(ses.email||'')}</b></div><div class="row"><span>آخر مزامنة</span><b>${busy?'كتزامن…':t}</b></div>${lastErr?`<div class="muted" style="color:#c0392b">⚠️ ${esc2(lastErr)}</div>`:''}`}
+function section(){
+  if(!on()){return `<div class="sec">☁️ المزامنة مع الوالد (Supabase)</div><div class="card">
+    <div class="muted">دخل الإيميل والمودپاس ديالك (اللي درتي ف Supabase). الوالد كيدير نفس الشي بالإيميل ديالو، ومن بعد أي حاجة كتزيدها كتبان عند الآخر.</div>
+    <label>الإيميل</label><input id="sbMail" dir="ltr" type="email" autocomplete="username" value="${esc2((ses&&ses.email)||'')}">
+    <label>المودپاس</label><input id="sbPass" dir="ltr" type="password" autocomplete="current-password">
+    <button class="btn dark" style="margin-top:10px" onclick="SYNC.connect()">🔗 اتصل</button>
+    <details style="margin-top:10px"><summary class="muted">إعدادات متقدمة (ماشي ضروري)</summary>
+    <label>Project URL — ولا الصق هنا النص اللي كوبيتي من Supabase</label><input id="sbUrl" dir="ltr" placeholder="${DEF.url}">
+    <label>Publishable key</label><input id="sbKey" dir="ltr" placeholder="sb_publishable_..."></details></div>`}
+  return `<div class="sec">☁️ المزامنة مع الوالد (Supabase)</div><div class="card"><div id="syncState">${stateHtml()}</div>
+    <button class="btn dark" style="margin-top:8px" onclick="SYNC.now()">🔄 زامن دابا</button>
+    <button class="btn ghost" style="margin-top:8px" onclick="SYNC.share()">📤 صيفط الإعدادات للوالد (WhatsApp)</button>
+    <button class="btn sm red" style="margin-top:8px" onclick="SYNC.logout()">خروج من الحساب</button></div>`}
+async function connect(){
+  let url=clean(document.getElementById('sbUrl').value),key=document.getElementById('sbKey').value.trim();let keys=null;
+  const mail=document.getElementById('sbMail').value.trim(),pass=document.getElementById('sbPass').value;
+  const blob=document.getElementById('sbUrl').value+' '+document.getElementById('sbKey').value;
+  const mU=blob.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i),mK=blob.match(/sb_publishable_[A-Za-z0-9_\-]+/)||blob.match(/eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/);
+  if(!/^TAXI-/i.test(url)&&mU){url=mU[0];if(mK)key=mK[0]}
+  if(/^TAXI-/i.test(url)){try{const o=JSON.parse(decodeURIComponent(escape(atob(url.slice(5)))));url=clean(o.u);key=o.k}catch(e){return alert('الكود ماشي صحيح')}}
+  if(!url){url=DEF.url;keys=DEF.keys.slice()}else if(!key&&url===DEF.url)keys=DEF.keys.slice();else keys=[key];
+  if(!/^https:\/\/.+/.test(url)||!keys[0]||!mail||!pass)return alert('دخل الإيميل والمودپاس');
+  toast('كنتصل…');let ok=false,lastE=null;
+  for(const k of keys){cfg={url,key:k};st(CFG_K,cfg);try{await auth({email:mail,password:pass},'password');ok=true;break}catch(e){lastE=e;if(!e.badKey)break}}
+  if(!ok){ses=null;st(SES_K,null);const m=lastE&&/invalid login|credentials/i.test(lastE.message)?'الإيميل ولا المودپاس غالطين':(lastE?lastE.message:'');return alert('ما قدرتش نتصل: '+m)}
+  try{const has=await api(TBL+'?select=id&limit=1');
+    if(has&&has.length){
+      const replace=confirm('الحساب فيه معلومات من قبل.\n\nOK = نجيبو المعلومات ديال الحساب لهاد التيليفون (مزيانة للوالد) — المعلومات القديمة ديال هاد التيليفون كيتمسحو.\n\nAnnuler = نزيدو المعلومات ديال هاد التيليفون للحساب (ممكن يتعاودو شي أيام).');
+      st(SH_K,{});st(CUR_K,null);
+      if(replace){ARR.forEach(k=>S[k]=[]);await pull(true);st(SH_K,recs())}
+      else{await push();await pull(true)}
+    }else{st(SH_K,{});st(CUR_K,null);await push();await pull(true)}
+    ORIG_SAVE();lastOk=Date.now();lastErr='';render();toast('متصل ✅ المزامنة خدامة');
+  }catch(e){lastErr=String(e.message||e);render();alert('متصل، ولكن مشكل ف الجدول: '+lastErr+'\n\nتأكد من الكود SQL ف Supabase.')}}
+function share(){const code='TAXI-'+btoa(unescape(encodeURIComponent(JSON.stringify({u:cfg.url,k:cfg.key}))));
+  const msg='باش تشوف معايا نفس المعلومات ف التطبيق ديال الطاكسي:\n1) حدث التطبيق وحلو من الأيقونة\n2) ⚙️ ← ☁️ المزامنة\n3) دخل الإيميل والمودپاس ديالك ← اتصل\n4) ملي يسولك، ضغط OK';
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank')}
+function logout(){if(!confirm('نخرجو من الحساب؟ المعلومات كتبقى ف هاد التيليفون.'))return;ses=null;st(SES_K,null);st(SH_K,null);st(CUR_K,null);render()}
+window.SYNC={connect,now:()=>{sync();toast('كنزامن…')},share,logout,sync};
+const ORIG_VSET=vSet;vSet=function(){return section()+ORIG_VSET()};
+const ORIG_RENDER=render;render=function(){ORIG_RENDER();if(!document.getElementById('syncDot')){const h=document.getElementById('hS');if(h&&h.parentNode){const d=document.createElement('span');d.id='syncDot';d.style.cssText='font-size:13px;margin-inline-start:6px';h.parentNode.appendChild(d)}}paint()};
+setTimeout(sync,1200);
+})();
+</script>
+
 </body>
 </html>
